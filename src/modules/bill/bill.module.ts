@@ -7,12 +7,25 @@ import { BillConsumer } from '../../consumers/bill.consumer';
 import { BillController } from './controller/bill.controller';
 import { SharedModule } from '../../shared/shared.module';
 import { UserModule } from '../user/user.module';
+import { BillSchedulerService } from './scheduler/bill-scheduler.service';
+import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [SharedModule, UserModule],
+  imports: [
+    SharedModule,
+    UserModule,
+    EmailModule
+  ],
   controllers: [BillController],
   exports: [BillService, BillHistoryService],
-  providers: [BillConsumer, BillService, BillHistoryService, BillRepository, BillHistoryRepository]
+  providers: [
+    BillConsumer,
+    BillService,
+    BillHistoryService,
+    BillRepository,
+    BillHistoryRepository,
+    BillSchedulerService
+  ],
 })
 export class BillModule {
 }

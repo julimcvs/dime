@@ -32,4 +32,11 @@ export class UserService {
     Object.assign(user, dto);
     return await this.repository.save(user);
   }
+
+  async findUsersBatch(offset: number, batchSize: number) {
+    return await this.repository.find({
+      skip: offset,
+      take: batchSize,
+    });
+  }
 }

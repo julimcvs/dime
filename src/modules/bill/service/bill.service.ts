@@ -3,7 +3,6 @@ import { Bill } from '../../../model/entities/bill.entity';
 import { SaveBillDto } from '../dto/save-bill.dto';
 import { BillRepository } from '../repository/bill.repository';
 import { MonthYearDto } from '../../../model/dto/month-year.dto';
-import { SetBillPriceDto } from '../dto/set-bill-price.dto';
 import { BillHistoryService } from './bill-history.service';
 import { BillDto } from '../dto/bill.dto';
 import { BillHistory } from '../../../model/entities/bill-history.entity';
@@ -37,35 +36,20 @@ export class BillService {
     const month = today.getMonth() + 1;
     const user = await this.userService.findById(loggedUser.sub);
     if (dto.month >= month && dto.year >= year) {
-      const bills = await this.repository.find({
-        where: {
-          isDeleted: false,
-          user: { id: user.id },
-        },
-      });
-      return bills.map((bill: Bill) => {
-        const billDto: BillDto = { ...bill };
-        return billDto;
-      });
+      return await this.findMonthBills(user);
     }
-    const billHistory = await this.billHistoryService.findAllByMonth(dto);
-    return billHistory.map((history: BillHistory) => {
-      const billDto = new BillDto();
-      const bill = history.bill;
-      billDto.id = bill.id;
-      billDto.price = history.price;
-      billDto.description = bill.description;
-      billDto.recurrentPaymentDay = bill.recurrentPaymentDay;
-      billDto.sendNotification = bill.sendNotification;
-      billDto.isFixedPrice = bill.isFixedPrice;
-      return billDto;
-    });
+    return await this.findBillHistoryByMonthAndYear(dto, user);
   }
 
-  async findTodaysBills() {
+  async findUserTodaysBills(userId: number) {
     const today = new Date();
     const day = today.getDate();
-    return await this.repository.find({ where: { recurrentPaymentDay: day } });
+    return await this.repository.find({
+      where: {
+        recurrentPaymentDay: day,
+        user: { id: userId },
+      }
+    });
   }
 
   async save(dto: SaveBillDto, loggedUser: any) {
@@ -96,6 +80,29 @@ export class BillService {
       return bill;
     }
     throw new BadRequestException('Bill not found');
+  }
+
+  private async findBillHistoryByMonthAndYear(dto: MonthYearDto, user: User) {
+    const billHistory = await this.billHistoryService.findAllByUserAndMonth(dto, user.id);
+    return billHistory.map((history: BillHistory) => {
+      const billDto = new BillDto();
+      const bill = history.bill;
+      Object.assign(billDto, bill);
+      return billDto;
+    });
+  }
+
+  private async findMonthBills(user: User) {
+    const bills = await this.repository.find({
+      where: {
+        isDeleted: false,
+        user: { id: user.id },
+      },
+    });
+    return bills.map((bill: Bill) => {
+      const billDto: BillDto = { ...bill };
+      return billDto;
+    });
   }
 
   private async updateBill(bill: Bill, dto: SaveBillDto) {

@@ -14,6 +14,7 @@ import { CategoryModule } from './modules/category/category.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { SallaryModule } from './modules/sallary/sallary.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SallaryModule } from './modules/sallary/sallary.module';
     AuthModule,
     UserModule,
     SallaryModule,
+    EmailModule
   ],
   controllers: [AppController],
   providers: [AppService, {
