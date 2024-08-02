@@ -29,4 +29,16 @@ export class BillHistoryService {
       await this.repository.save(billsHistories.slice(i, i + batchSize));
     }
   }
+
+  async findAllByUserIdAndDate(userId: number, date: Date) {
+    return await this.repository.createQueryBuilder('billHistory')
+      .innerJoin('billHistory.bill', 'bill')
+      .innerJoin('bill.user', 'user')
+      .where('user.id = :userId', { userId })
+      .andWhere('billHistory.month = :month', { month: date.getMonth() + 1 })
+      .andWhere('billHistory.year = :year', { year: date.getFullYear() })
+      .andWhere('bill.recurrentPaymentDay = :day', { day: date.getDate() })
+      .select(`distinct bill.id as bill_id`)
+      .getRawMany();
+  }
 }

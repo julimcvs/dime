@@ -32,7 +32,10 @@ export class CategoryService {
   async save(dto: SaveCategoryDto, loggedUser: any) {
     const user = await this.userService.findById(loggedUser.sub);
     const category = await this.saveCategory(dto, user);
-    await this.cacheManager.del('find-all-categories');
+    await this.cacheManager.del('/category');
+    if (dto.id) {
+      await this.cacheManager.del(`/category/${category.id}`);
+    }
     return category;
   }
 

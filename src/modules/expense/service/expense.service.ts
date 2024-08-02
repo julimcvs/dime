@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { ExpenseRepository } from '../repository/expense.repository';
 import { Expense } from '../../../model/entities/expense.entity';
 import { Between } from 'typeorm';
@@ -6,10 +6,12 @@ import { MonthYearDto } from '../../../model/dto/month-year.dto';
 import { SaveExpenseDto } from '../dto/save-expense.dto';
 import { UserService } from '../../user/service/user.service';
 import { User } from '../../../model/entities/user.entity';
+import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Injectable()
 export class ExpenseService {
   constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly repository: ExpenseRepository,
     private readonly userService: UserService,
   ) {
@@ -58,7 +60,15 @@ export class ExpenseService {
   }
 
   async findExpenseById(id: number, user: User) {
-    const expense = await this.repository.findOne({ where: { id, user: { id: user.id } } });
+    const expense = await this.repository.findOne({
+      relations: ['category'],
+      where: {
+        id,
+        user: {
+          id: user.id
+        }
+      }
+    });
     if (expense) {
       return expense;
     }
@@ -67,7 +77,9 @@ export class ExpenseService {
 
   async save(dto: SaveExpenseDto, loggedUser: any) {
     const user = await this.userService.findById(loggedUser.sub);
+    await this.cacheManager.del('/expense');
     if (dto.id) {
+      await this.cacheManager.del(`/expense/${dto.id}`);
       const existingExpense = await this.findExpenseById(dto.id, user);
       return await this.updateExpense(existingExpense, dto);
     }

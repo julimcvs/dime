@@ -49,13 +49,14 @@ import { EmailModule } from './modules/email/email.module';
     AuthModule,
     UserModule,
     SallaryModule,
-    EmailModule
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService, {
     provide: APP_INTERCEPTOR,
     useClass: CacheInterceptor,
-  }],
+  },
+  ],
 })
 export class AppModule {
 }

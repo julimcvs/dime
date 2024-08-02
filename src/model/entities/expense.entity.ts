@@ -19,7 +19,7 @@ export class Expense {
   @Column({ type: 'boolean' })
   isDeleted: boolean;
 
-  @ManyToOne(() => Category, () => Category, { lazy: true })
+  @ManyToOne(() => Category, () => Category)
   @JoinColumn({ name: 'categoryId' })
   category: Category;
 

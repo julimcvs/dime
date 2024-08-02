@@ -1,13 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { UserService } from '../../user/service/user.service';
 import { SaveSallaryDto } from '../dto/save-sallary.dto';
 import { Sallary } from '../../../model/entities/sallary.entity';
 import { SallaryRepository } from '../repository/sallary.repository';
+import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Injectable()
 export class SallaryService {
-  constructor(private readonly repository: SallaryRepository,
-              private readonly userService: UserService) {
+  constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly repository: SallaryRepository,
+    private readonly userService: UserService) {
   }
 
   async findUserSallary(loggedUser: any) {
@@ -20,6 +23,7 @@ export class SallaryService {
   }
 
   async save(dto: SaveSallaryDto, loggedUser: any) {
+    await this.cacheManager.del('/sallary');
     const user = await this.userService.findById(loggedUser.sub);
     let userSallary = await this.findUserSallary(loggedUser);
     if (!userSallary) {

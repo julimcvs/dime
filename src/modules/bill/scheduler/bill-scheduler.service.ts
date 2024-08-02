@@ -14,6 +14,12 @@ export class BillSchedulerService implements OnModuleInit {
   }
 
   async scheduleBillProcessing() {
+    await this.billsQueue.clean(60000, 'completed');
+    await this.billsQueue.clean(60000, 'active');
+    await this.billsQueue.clean(60000, 'delayed');
+    await this.billsQueue.clean(60000, 'wait');
+    await this.billsQueue.clean(60000, 'paused');
+    await this.billsQueue.clean(60000, 'failed');
     await this.billsQueue.add(
       'process-bills',
       {},
@@ -22,6 +28,11 @@ export class BillSchedulerService implements OnModuleInit {
           cron: '0 0 * * *', // Every day at midnight
         },
       },
+    );
+    await this.billsQueue.add(
+      'process-bills',
+      {},
+      {},
     );
   }
 }

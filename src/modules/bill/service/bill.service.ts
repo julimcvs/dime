@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Bill } from '../../../model/entities/bill.entity';
 import { SaveBillDto } from '../dto/save-bill.dto';
 import { BillRepository } from '../repository/bill.repository';
@@ -8,10 +8,12 @@ import { BillDto } from '../dto/bill.dto';
 import { BillHistory } from '../../../model/entities/bill-history.entity';
 import { UserService } from '../../user/service/user.service';
 import { User } from '../../../model/entities/user.entity';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 
 @Injectable()
 export class BillService {
   constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly repository: BillRepository,
     private readonly billHistoryService: BillHistoryService,
     private readonly userService: UserService,
@@ -44,17 +46,25 @@ export class BillService {
   async findUserTodaysBills(userId: number) {
     const today = new Date();
     const day = today.getDate();
-    return await this.repository.find({
-      where: {
-        recurrentPaymentDay: day,
-        user: { id: userId },
-      }
-    });
+    const processedBills = await this.billHistoryService.findAllByUserIdAndDate(userId, today);
+    const processedBillsIds = processedBills.map(bill => bill.bill_id);
+    const queryBuilder = this.repository.createQueryBuilder('bill')
+      .innerJoin('bill.user', 'user')
+      .where('bill.recurrentPaymentDay = :day', { day })
+      .andWhere('user.id = :userId', { userId });
+
+    if (processedBillsIds.length > 0) {
+      queryBuilder.andWhere('bill.id NOT IN (:...billsIds)', { billsIds: processedBillsIds });
+    }
+
+    return await queryBuilder.getMany();
   }
 
   async save(dto: SaveBillDto, loggedUser: any) {
     const user = await this.userService.findById(loggedUser.sub);
+    await this.cacheManager.del('/bills');
     if (dto.id) {
+      await this.cacheManager.del(`/bills/${dto.id}`);
       const existingBill = await this.findBillById(dto.id, user);
       return await this.updateBill(existingBill, dto);
     }

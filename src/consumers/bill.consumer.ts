@@ -6,9 +6,10 @@ import { BillService } from '../modules/bill/service/bill.service';
 import { Bill } from '../model/entities/bill.entity';
 import { BillHistory } from '../model/entities/bill-history.entity';
 import { UserService } from '../modules/user/service/user.service';
-import fs from 'fs';
 import { User } from '../model/entities/user.entity';
 import { EmailService } from '../modules/email/service/email.service';
+
+const fs = require('fs');
 
 @Processor('bills')
 export class BillConsumer {
@@ -19,7 +20,7 @@ export class BillConsumer {
     private readonly billService: BillService,
     private readonly billHistoryService: BillHistoryService,
     private readonly userService: UserService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
   ) {
   }
 
@@ -32,9 +33,12 @@ export class BillConsumer {
       users = await this.userService.findUsersBatch(offset, batchSize);
       for (const user of users) {
         await this.billsQueue.add(
-          `process-user-bills-${user.id}`,
+          'process-user-bills',
           {
             userId: user.id,
+          },
+          {
+            jobId: `process-user-bills-${user.id}`,
           },
         );
       }
@@ -48,45 +52,9 @@ export class BillConsumer {
     const { userId } = job.data;
     const bills: Bill[] = await this.billService.findUserTodaysBills(userId);
     const user: User = await this.userService.findById(userId);
+    const notifiableBills = bills.filter(bill => bill.sendNotification);
+    await this.notifyUser(notifiableBills, user);
     await this.generateBillHistories(bills);
-    await this.notifyUser(bills, user);
-  }
-
-  private async generateBillHistories(bills: Bill[]) {
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const year = today.getFullYear();
-    const billsHistories = bills.map(bill => {
-      const billHistory = new BillHistory();
-      billHistory.bill = bill;
-      billHistory.month = month;
-      billHistory.year = year;
-      billHistory.price = bill.price;
-      return billHistory;
-    });
-    await this.billHistoryService.saveAll(billsHistories);
-  }
-
-
-  private async notifyUser(bills: Bill[], user: User) {
-    let html = fs.readFileSync('src/resources/templates/user-bills.html').toString();
-    html = html.replace("${NAME}", user.username);
-    html = html.replace("${DATE}", new Date().toISOString());
-    const billsData = this.getBillsHtml(bills);
-    html = html.replace("${BILLS}", billsData);
-    await this.emailService.sendEmail(html, "Today's bill report", user.email);
-  }
-
-  private getBillsHtml(bills: Bill[]) {
-    let billsData = '<tbody>';
-    bills.forEach(bill => {
-      billsData += `<tr>
-        <td>${bill.description}</td>
-        <td>${bill.price}</td>
-      </tr>`;
-    });
-    billsData += '</tbody>';
-    return billsData;
   }
 
   @OnQueueCompleted()
@@ -109,5 +77,43 @@ export class BillConsumer {
     const { id, name, queue, timestamp } = job;
     const startTime = timestamp ? new Date(timestamp).toISOString() : '';
     this.logger.log(`Processing bill. Job id: ${id}, name: ${name} starts in queue ${queue.name} on ${startTime}.`);
+  }
+
+  private async generateBillHistories(bills: Bill[]) {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const year = today.getFullYear();
+    const billsHistories = bills.map(bill => {
+      const billHistory = new BillHistory();
+      billHistory.bill = bill;
+      billHistory.month = month;
+      billHistory.year = year;
+      billHistory.price = bill.price;
+      return billHistory;
+    });
+    await this.billHistoryService.saveAll(billsHistories);
+  }
+
+  private async notifyUser(bills: Bill[], user: User) {
+    if (bills.length > 0) {
+      let html = fs.readFileSync('src/resources/templates/user-bills.html').toString();
+      html = html.replace('${NAME}', user.username);
+      html = html.replace('${DATE}', new Date().toLocaleDateString());
+      const billsData = this.getBillsHtml(bills);
+      html = html.replace('${BILLS}', billsData);
+      await this.emailService.sendEmail(html, 'Today\'s bill report', user.email);
+    }
+  }
+
+  private getBillsHtml(bills: Bill[]) {
+    let billsData = '<tbody>';
+    bills.forEach(bill => {
+      billsData += `<tr>
+        <td style="break-inside: avoid; break-after: auto; padding: 10px; margin: auto; text-align: left; vertical-align: top; border-bottom: 1px solid #121212;">${bill.description}</td>
+        <td style="break-inside: avoid; break-after: auto; padding: 10px; margin: auto; text-align: left; vertical-align: top; border-bottom: 1px solid #121212;">${bill.price}</td>
+      </tr>`;
+    });
+    billsData += '</tbody>';
+    return billsData;
   }
 }

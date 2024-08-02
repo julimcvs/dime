@@ -10,7 +10,6 @@ export class CategoryController {
   }
 
   @Get()
-  @CacheKey('find-all-categories')
   async findAll(@LoggedUser() loggedUser: any) {
     return await this.service.findAll(loggedUser);
   }
