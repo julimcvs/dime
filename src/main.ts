@@ -16,7 +16,8 @@ async function bootstrap() {
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: "*"
   });
-  await app.listen(6969);
+  const port = process.env.PORT || 6969;
+  await app.listen(port);
   logger.log("Application is running on port 6969");
 }
 bootstrap();
